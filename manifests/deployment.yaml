@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testworkflow
+  labels:
+    app: testworkflow
+  namespace: aksstore
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: testworkflow
+  template:
+    metadata:
+      labels:
+        app: testworkflow
+    spec:
+      containers:
+        - name: testworkflow
+          image: pebomberacr.azurecr.io/aksstore:latest
+          ports:
+            - containerPort: 5000
