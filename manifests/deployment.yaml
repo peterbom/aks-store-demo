@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-helm
+  labels:
+    app: deploy-helm
+  namespace: aksstore
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deploy-helm
+  template:
+    metadata:
+      labels:
+        app: deploy-helm
+    spec:
+      containers:
+        - name: deploy-helm
+          image: pebomberacr.azurecr.io/store:latest
+          ports:
+            - containerPort: 8080
