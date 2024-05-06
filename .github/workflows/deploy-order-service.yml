@@ -8,18 +8,23 @@
 #
 # To configure this workflow:
 #
-# 1. Set the following secrets in your repository (instructions for getting these can be found at https://docs.microsoft.com/en-us/azure/developer/github/connect-from-azure?tabs=azure-cli%2Clinux):
+# 1. Set the following secrets in your repository (instructions for getting these
+#    https://docs.microsoft.com/en-us/azure/developer/github/connect-from-azure?tabs=azure-cli%2Clinux)):
 #    - AZURE_CLIENT_ID
 #    - AZURE_TENANT_ID
 #    - AZURE_SUBSCRIPTION_ID
 #
 # 2. Set the following environment variables (or replace the values below):
 #    - AZURE_CONTAINER_REGISTRY (name of your container registry / ACR)
+#    - CONTAINER_NAME (name of the container image you would like to push up to your ACR)
 #    - RESOURCE_GROUP (where your cluster is deployed)
 #    - CLUSTER_NAME (name of your AKS cluster)
-#    - CONTAINER_NAME (name of the container image you would like to push up to your ACR)
 #    - IMAGE_PULL_SECRET_NAME (name of the ImagePullSecret that will be created to pull your ACR image)
-#    - DEPLOYMENT_MANIFEST_PATH (path to the manifest yaml for your deployment)
+#
+# 3. Choose the appropriate render engine for the bake step https://github.com/Azure/k8s-bake. The config below assumes Helm.
+#    Set your helmChart, overrideFiles, overrides, and helm-version to suit your configuration.
+#    - CHART_PATH (path to your helm chart)
+#    - CHART_OVERRIDE_PATH (path to your helm chart with override values)
 #
 # For more information on GitHub Actions for Azure, refer to https://github.com/Azure/Actions
 # For more samples to get started with GitHub Action workflows to deploy to Azure, refer to https://github.com/Azure/actions-workflow-samples
@@ -38,9 +43,9 @@ env:
   CLUSTER_RESOURCE_GROUP: pebomber-rg
   ACR_RESOURCE_GROUP: pebomber-rg
   CLUSTER_NAME: pebomber-devtest
-  DEPLOYMENT_MANIFEST_PATH: |
-    ./src/order-service/manifests/deployment.yaml
-    ./src/order-service/manifests/service.yaml
+  CHART_PATH: ./src/order-service/charts
+  CHART_OVERRIDE_PATH: ./src/order-service/charts/values.yaml
+  CHART_OVERRIDES: image.repository=pebomberacr.azurecr.io/order-service,image.tag=${{ github.sha }}
 
 jobs:
   buildImage:
@@ -63,7 +68,6 @@ jobs:
       # Builds and pushes an image up to your Azure Container Registry
       - name: Build and push image to ACR
         run: az acr build --image ${{ env.CONTAINER_NAME }}:${{ github.sha }} --registry ${{ env.AZURE_CONTAINER_REGISTRY }} -g ${{ env.ACR_RESOURCE_GROUP }} -f ./src/order-service/Dockerfile ./src/order-service
-
   deploy:
     permissions:
       actions: read
@@ -97,12 +101,6 @@ jobs:
           admin: 'false'
           use-kubelogin: 'true'
 
-      # Deploys application based on given manifest file
-      - name: Deploys application
-        uses: Azure/k8s-deploy@v4
-        with:
-          action: deploy
-          manifests: ${{ env.DEPLOYMENT_MANIFEST_PATH }}
-          images: |
-            ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_NAME }}:${{ github.sha }}
-          namespace: aksstore
+      # Deploys application based on manifest files from previous step
+      - name: Deploy application
+        run: helm upgrade --wait -i -f ${{ env.CHART_OVERRIDE_PATH }} --set ${{ env.CHART_OVERRIDES }} automated-deployment ${{ env.CHART_PATH }}
