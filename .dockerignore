@@ -1,2 +1,4 @@
-.env
-rabbitmq_enabled_plugins
+Dockerfile
+charts/
+bin/
+obj/
